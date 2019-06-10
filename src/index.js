@@ -38,6 +38,7 @@ export default function pullWhen(sampler) {
 
       if (type === 1) {
         sink(1, data)
+        samplerTalkback(1, data)
         return
       }
 
