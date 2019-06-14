@@ -4,10 +4,20 @@ export default function pullWhen(sampler) {
 
     let pullableTalkback
     let samplerTalkback
+    let terminated = false
 
     pullable(0, (type, data) => {
       if (type === 0) {
         pullableTalkback = data
+
+        sink(0, end => {
+          if (end !== 2) return
+
+          terminated = true
+          pullableTalkback(2)
+          samplerTalkback(2)
+        })
+        if (terminated) return
 
         sampler(0, (type, data) => {
           if (type === 0) {
@@ -21,28 +31,23 @@ export default function pullWhen(sampler) {
           }
 
           if (type === 2) {
+            terminated = true
             pullableTalkback(2)
             sink(2)
             return
           }
-        })
-
-        sink(0, end => {
-          if (end !== 2) return
-
-          pullableTalkback(2)
-          samplerTalkback(2)
         })
         return
       }
 
       if (type === 1) {
         sink(1, data)
-        samplerTalkback(1, data)
+        if (!terminated) samplerTalkback(1, data)
         return
       }
 
       if (type === 2) {
+        terminated = true
         samplerTalkback(2)
         sink(2)
         return

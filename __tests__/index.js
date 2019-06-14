@@ -72,3 +72,90 @@ test('works with pullable sampler', () => {
   }
   expect(actual).toEqual([10, 20, 30])
 })
+
+test('does not pull sampler after it terminated', () => {
+  const actual = []
+
+  const sampler = (start, sink) => {
+    if (start !== 0) return
+    let terminated = false
+    sink(0, (t, d) => {
+      expect(terminated).toBeFalsy()
+      terminated = true
+      if (t !== 2) sink(2)
+    })
+    sink(1)
+  }
+
+  pipe(
+    fromIter([1, 2]),
+    pullWhen(sampler),
+  )(0, (t, d) => {
+    if (t === 1) actual.push(d)
+  })
+
+  expect(actual).toEqual([1])
+})
+
+test('terminates sampler when source terminated', () => {
+  const actual = []
+  let sourceTerminated = false
+  let samplerTerminated = false
+
+  const sampler = (start, sink) => {
+    if (start !== 0) return
+    sink(0, (t, d) => {
+      expect(samplerTerminated).toBeFalsy()
+      if (t === 2) samplerTerminated = true
+      sink(t, d)
+    })
+    sink(1)
+  }
+
+  let talkback
+  pipe(
+    fromIter([1, 2]),
+    pullWhen(sampler),
+  )(0, (t, d) => {
+    if (t === 0) talkback = d
+    if (t === 1) {
+      actual.push(d)
+      sourceTerminated = true
+      talkback(2)
+    }
+  })
+
+  expect(sourceTerminated).toBeTruthy()
+  expect(samplerTerminated).toBeTruthy()
+  expect(actual).toEqual([1])
+})
+
+test('terminates source when sampler terminated', () => {
+  const actual = []
+  let sourceTerminated = false
+  let samplerTerminated = false
+
+  const sampler = (start, sink) => {
+    if (start !== 0) return
+    sink(0, (t, d) => {
+      expect(samplerTerminated).toBeFalsy()
+      if (t === 1) {
+        samplerTerminated = true
+        sink(2)
+      } else sink(t, d)
+    })
+    sink(1)
+  }
+
+  pipe(
+    fromIter([1, 2]),
+    pullWhen(sampler),
+  )(0, (t, d) => {
+    if (t === 1) actual.push(d)
+    if (t === 2) sourceTerminated = true
+  })
+
+  expect(sourceTerminated).toBeTruthy()
+  expect(samplerTerminated).toBeTruthy()
+  expect(actual).toEqual([1])
+})
